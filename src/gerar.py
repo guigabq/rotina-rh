@@ -16,6 +16,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -650,21 +651,74 @@ def achar_chrome(explicito: str | None) -> str | None:
     return None
 
 
-def html_para_pdf(chrome: str, html_path: str, pdf_path: str) -> None:
-    perfil = tempfile.mkdtemp(prefix='chrome-ponto-')
+def _pdf_valido(caminho: str) -> bool:
     try:
-        comando = [
-            chrome, '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-            f'--user-data-dir={perfil}', '--no-pdf-header-footer',
-            f'--print-to-pdf={pdf_path}',
-            'file://' + urllib.parse.quote(os.path.abspath(html_path), safe='/'),
-        ]
-        resultado = subprocess.run(comando, check=False, capture_output=True, text=True)
-        if resultado.returncode != 0 or not os.path.isfile(pdf_path):
-            erro = (resultado.stderr or resultado.stdout or '').strip().splitlines()
-            detalhe = erro[-1] if erro else f'código {resultado.returncode}'
-            raise SystemExit(f'Falha ao gerar PDF com o Chrome: {detalhe}')
+        if os.path.getsize(caminho) < 500:
+            return False
+        with open(caminho, 'rb') as arquivo:
+            return arquivo.read(5) == b'%PDF-'
+    except OSError:
+        return False
+
+
+def _encerrar_processo(processo: subprocess.Popen) -> None:
+    if processo.poll() is not None:
+        return
+    try:
+        os.killpg(processo.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        processo.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(processo.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
+        processo.wait(timeout=5)
+
+
+def html_para_pdf(chrome: str, html_path: str, pdf_path: str) -> None:
+    """Converte HTML em PDF. O Chrome headless grava o arquivo e, em alguns
+    builds, não termina sozinho; o processo é encerrado quando o PDF está pronto."""
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
+    perfil = tempfile.mkdtemp(prefix='chrome-ponto-')
+    log_path = os.path.join(perfil, 'chrome.log')
+    comando = [
+        chrome, '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+        f'--user-data-dir={perfil}', '--no-pdf-header-footer',
+        f'--print-to-pdf={os.path.abspath(pdf_path)}',
+        'file://' + urllib.parse.quote(os.path.abspath(html_path), safe='/'),
+    ]
+    log = open(log_path, 'w', encoding='utf-8')
+    processo = subprocess.Popen(comando, stdout=log, stderr=log, start_new_session=True)
+    try:
+        prazo = time.monotonic() + 45
+        tamanho = -1
+        estavel = 0
+        while time.monotonic() < prazo:
+            if _pdf_valido(pdf_path):
+                atual = os.path.getsize(pdf_path)
+                if atual == tamanho:
+                    estavel += 1
+                    if estavel >= 2:
+                        return
+                else:
+                    estavel = 0
+                tamanho = atual
+            elif processo.poll() is not None:
+                break
+            time.sleep(0.2)
+        log.flush()
+        detalhe = ''
+        with open(log_path, encoding='utf-8', errors='replace') as arquivo:
+            linhas = [linha.strip() for linha in arquivo if linha.strip() and 'dbus' not in linha.lower()]
+        detalhe = linhas[-1] if linhas else ''
+        raise SystemExit('Falha ao gerar PDF com o Chrome.' + (f' {detalhe}' if detalhe else ''))
     finally:
+        _encerrar_processo(processo)
+        log.close()
         shutil.rmtree(perfil, ignore_errors=True)
 
 
