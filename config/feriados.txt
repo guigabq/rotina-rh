@@ -1,0 +1,7 @@
+# Feriados usados pelo gerador de espelhos e pela checagem diária.
+# A API TiqueTaque não expõe calendário de feriados: esta lista é mantida pelo RH.
+# Uma data por linha: AAAA-MM-DD ou DD/MM/AAAA, seguida da descrição.
+# Linhas em branco e linhas começando com # são ignoradas.
+
+# 12/10 — Nossa Senhora Aparecida
+2026-10-12 Nossa Senhora Aparecida

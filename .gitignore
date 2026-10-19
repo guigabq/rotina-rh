@@ -1,0 +1,33 @@
+# Segredos — o token da API nunca entra no repositório
+.env
+.env.*
+!.env.example
+*.pem
+*credentials*
+
+# Ambientes locais
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Dumps da API e qualquer dado pessoal de funcionário
+data/
+dumps/
+cache/
+fechamentos/
+output/
+**/employees.json
+**/timesheets.json
+**/payment_sources.json
+**/schedules.json
+**/times/
+inconsistencias.json
+
+# Relatórios gerados (PDF, HTML intermediário, imagens)
+*.pdf
+*.png
+*.html
+*.htm

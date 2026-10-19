@@ -1,0 +1,5 @@
+# O gerador (src/gerar.py) usa apenas a biblioteca padrão do Python 3.11+.
+# Não há dependência pip.
+#
+# A conversão HTML → PDF usa o Google Chrome ou o Chromium instalado no
+# sistema (executável no PATH, ou o caminho em CHROME_BIN). Não é um pacote pip.
