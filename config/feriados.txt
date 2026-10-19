@@ -1,0 +1,11 @@
+# Feriados da checagem diária e do modelo legado (src/gerar.py).
+# O PDF oficial do fechamento sai do TiqueAdmin e não usa esta lista.
+# A API pública do TiqueTaque não expõe calendário de feriados.
+#
+# Um feriado por linha:
+#   DD/MM descrição          vale para qualquer ano do período gerado
+#   YYYY-MM-DD descrição     vale só para aquela data
+# Linhas vazias e linhas começando com # são ignoradas.
+#
+# 12 de outubro, Nossa Senhora Aparecida, é feriado nacional.
+12/10 N. Sra. Aparecida

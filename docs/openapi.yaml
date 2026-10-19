@@ -1,0 +1,3805 @@
+openapi: 3.0.2
+info:
+  title: API pública TiqueTaque
+  version: '2.1'
+  description: |
+    <h2>Autenticação</h2>
+      Para todas as requisições é necessária a autenticação com um token gerado a partir da plataforma do gestor, 
+      utilizando o token com autenticação <code>BasicAuth</code> sendo <code>user=public</code>, <code>senha=&ltseu_token&gt</code>.  
+      Verifique a seção de integrações do TiqueAdmin para gerar o token.
+    <h2>Rate limiting</h2>
+      Requisições são limitadas a 60 requisições por janela deslizante de 1 minuto.
+      Se o limite for excedido, será retornada uma resposta HTTP <code>429 Too Many Requests</code>.<br>
+security:
+  - BasicAuth: []
+servers:
+  - url: https://api.tiquetaque.com/v2.1
+    description: Production
+tags:
+  - name: Afastamentos
+    description: Operações referentes aos afastamentos de um funcionário.
+  - name: Escalas
+    description: Informações dos cadastros de escalas de trabalho.
+  - name: Funcionários
+    description: Operações sobre os cadastros de funcionários.
+  - name: Registros de ponto
+    description: Informações referentes aos registros de ponto.
+  - name: Empregadores
+    description: Operações relacionadas aos empregadores.
+  - name: Espelhos de ponto
+    description: >
+      Dados relativos à um período de espelho de ponto, como totais trabalhados,
+      horas extras, banco de horas e afastamentos.
+  - name: Unidades
+    description: Cadastros de unidades.
+  - name: Usuários
+    description: Operações sobre os cadastros de usuários.
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    IsoDateTimeModel:
+      type: string
+      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+      example: 2024-09-29T08:00
+    IsoDateTimeTzModel:
+      type: string
+      pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}[+-][0-2]\d:[0-5]\d$
+      example: 2024-09-29T08:00-03:00
+    EtagModel:
+      type: string
+      description: >
+        Hash a ser usado como conteúdo do header If-Match para realizar
+        atualização e remoções de documentos
+    TimezoneModel:
+      type: string
+      description: Fuso Horário utilizado para controle do horário de registro de ponto.
+      example: America/Sao_Paulo
+      enum:
+        - America/Araguaina
+        - America/Bahia
+        - America/Belem
+        - America/Boa_Vista
+        - America/Campo_Grande
+        - America/Cuiaba
+        - America/Eirunepe
+        - America/Noronha
+        - America/Fortaleza
+        - America/Maceio
+        - America/Manaus
+        - America/Porto_Velho
+        - America/Recife
+        - America/Rio_Branco
+        - America/Santarem
+        - America/Sao_Paulo
+        - Africa/Algiers
+        - Europe/Amsterdam
+        - Europe/Athens
+        - Pacific/Auckland
+        - Asia/Bangkok
+        - Europe/Berlin
+        - America/Bogota
+        - Europe/Brussels
+        - America/Argentina/Buenos_Aires
+        - Egypt
+        - Asia/Kolkata
+        - America/Caracas
+        - Asia/Dubai
+        - Europe/Dublin
+        - Africa/Casablanca
+        - US/Central
+        - America/Mexico_City
+        - US/Mountain
+        - America/Guatemala
+        - Europe/Helsinki
+        - Pacific/Honolulu
+        - Europe/Istanbul
+        - Asia/Jerusalem
+        - America/Lima
+        - Europe/Lisbon
+        - Europe/London
+        - US/Pacific
+        - Europe/Madrid
+        - Europe/Moscow
+        - Africa/Nairobi
+        - US/Eastern
+        - Europe/Paris
+        - Europe/Prague
+        - Europe/Rome
+        - America/Santiago
+        - Asia/Seoul
+        - Australia/Sydney
+        - Asia/Tokyo
+        - America/Toronto
+        - America/Vancouver
+        - Europe/Vienna
+        - Asia/Shanghai
+        - Europe/Zurich
+    UserPermissionsModel:
+      type: object
+      description: Configurações de permissões de usuário.
+      properties:
+        allow_ws_edition:
+          description: >-
+            Indica se o usuário pode editar escalas, apenas aplicável quando
+            role = 'supervisor'
+          default: true
+          type: boolean
+    AllowedSitesModel:
+      type: array
+      items:
+        type: string
+      example:
+        - id_1
+        - id_2
+      description: >
+        Lista de unidades as quais o usuário tem acesso. Obrigatório e aplicável
+        apenas quando o usuário não é admin. Restringe a visualização de
+        funcionários apenas aos funcionários vinculados à estas unidades. O
+        formato dos dados é uma lista de IDs de unidades cadastradas na conta.
+        NOTA: Não existe ainda na API pública  o recurso de unidades, isto será
+        adicionado futuramente.
+    RoleModel:
+      type: string
+      example: admin-supervisor
+      description: >
+        ```
+
+        Papel do usuário. Os valores possíveis são: ['admin',
+        'admin-supervisor', 'supervisor', read-only]
+
+        - admin: Administrador de todas as unidades, pode fazer todas as
+        configurações e gestão do sistema, como adicionar novos usuários,
+        empregadores, unidades, funcionários e escalas; adicionar lançamentos de
+        Banco de Horas; visualizar os demais usuários e mudar suas permissões;
+        lançar, aprovar e reprovar afastamentos; reabrir folhas e adicionar,
+        remover e reprovar registros.
+
+        - admin-supervisor: Não pode: adicionar e visualizar usuários,
+        visualizar funcionários que não estejam na sua unidade, editar
+        configurações e adicionar empregadores. A não ser por isto, possui a
+        mesma permissão do administrador, porém apenas para as unidades
+        selecionadas.
+
+        - supervisor: Pode apenas adicionar unidade, funcionários e escalas, das
+        unidades selecionadas.
+
+        - read-only: Pode apenas: visualizar os dados das unidades selecionadas.
+
+        ```
+    UserModel:
+      type: object
+      properties:
+        _id:
+          description: Identificador único do recurso, gerado internamente.
+          type: string
+        _created:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _updated:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _etag:
+          $ref: '#/components/schemas/EtagModel'
+        full_name:
+          description: Nome completo.
+          type: string
+          example: Exemplo da Silva
+        email:
+          description: Endereço de e-mail.
+          type: string
+          example: exemplo@tiquetaque.com
+        mobile_phone:
+          description: Número de telefone celular com código de área, somente números.
+          type: string
+          example: '11991234567'
+        external_id:
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          type: string
+        intercom_chat:
+          description: >-
+            Indica se o chat do intercom no TiqueAdmin está habilitado para este
+            usuário.
+          type: boolean
+        verified_user:
+          description: >-
+            Indica se a conta do usuário já foi verificada através do email de
+            ativação.
+          type: boolean
+          example: true
+        role:
+          $ref: '#/components/schemas/RoleModel'
+        allowed_sites:
+          $ref: '#/components/schemas/AllowedSitesModel'
+        permissions:
+          $ref: '#/components/schemas/UserPermissionsModel'
+    UserPostModel:
+      type: object
+      properties:
+        full_name:
+          description: Nome completo.
+          type: string
+          example: Exemplo da Silva
+        email:
+          description: Endereço de e-mail.
+          type: string
+          example: exemplo@tiquetaque.com
+        external_id:
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          type: string
+        mobile_phone:
+          description: Número de telefone celular com código de área, somente números.
+          type: string
+          example: '11991234567'
+        intercom_chat:
+          description: Habilita o chat intercom para o usuário.
+          type: boolean
+        role:
+          $ref: '#/components/schemas/RoleModel'
+        allowed_sites:
+          $ref: '#/components/schemas/AllowedSitesModel'
+        permissions:
+          $ref: '#/components/schemas/UserPermissionsModel'
+    WorkScheduleSummaryModel:
+      type: object
+      properties:
+        _id:
+          description: Identificador único da escala, gerado internamente.
+          type: string
+        description:
+          description: Campo `description` equivalente ao nome da escala de trabalho.
+          type: string
+    SiteModel:
+      type: object
+      properties:
+        _id:
+          description: Identificador único do recurso, gerado internamente.
+          type: string
+        _created:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _updated:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _etag:
+          $ref: '#/components/schemas/EtagModel'
+        name:
+          description: Nome da unidade.
+          type: string
+          example: Loja Matriz
+        geofence_location:
+          description: >
+            Cerca virtual. Ponto lng/lat em conjunto com um raio define uma área
+            onde é permitido o registro de ponto para funcionários vinculados à
+            esta unidade.
+          type: object
+          properties:
+            radius_meters:
+              description: >-
+                Raio em metros onde é permitido o registro de ponto
+                geolocalizado à partir do ponto location.
+              type: integer
+              minimum: 30
+            location:
+              type: array
+              items:
+                type: number
+              description: >-
+                Ponto inicial no formato Longitude, Latitude usado para definir
+                o local da Unidade.
+              example:
+                - -23.550513
+                - -46.633309
+        timezone:
+          $ref: '#/components/schemas/TimezoneModel'
+        employees:
+          type: array
+          items:
+            type: string
+          description: >-
+            Lista de IDs de funcionários. Vincula os funcionários à esta unidade
+            para todos efeitos.
+          example:
+            - 5f5bc225b511a6edec2891f7
+            - 0c5bc225b511a6edec289199
+    PaymentSourceModel:
+      type: object
+      properties:
+        _id:
+          description: Identificador único do recurso, gerado internamente.
+          type: string
+          example: 5f5bc225b511a6edec2891f7
+        _created:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _updated:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _etag:
+          $ref: '#/components/schemas/EtagModel'
+        name:
+          type: string
+          description: Razão social do empregador.
+          example: TIQUETAQUE SERVICOS DE TECNOLOGIA S.A.
+        cpf:
+          type: string
+          pattern: ^\d{11}$
+          description: >
+            CPF do empregador. Apenas números, sem máscara. Necessário que
+            exista ou este campo ou o campo CNPJ mutuamente exclusivos.
+          example: '01234567890'
+        cnpj:
+          type: string
+          pattern: ^[0-9A-Z]{12}\d{2}$
+          description: >
+            CNPJ do empregador, sem máscara. Aceita tanto o formato numérico
+            tradicional quanto o alfanumérico (12 caracteres alfanuméricos
+            maiúsculos seguidos de 2 dígitos verificadores). Necessário que
+            exista ou este campo ou o campo CPF mutuamente exclusivos.
+          example: '23467093000164'
+        external_id:
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          type: string
+        period_cut_day:
+          type: integer
+          maximum: 31
+          minimum: 1
+          description: >
+            Data de corte dos espelhos para este empregador. Depois de criado o
+            documento, não é permitida a alteração deste valor através desta
+            API.
+        address:
+          type: object
+          properties:
+            cep:
+              type: string
+              description: CEP do endereço deste empregador. Apenas números.
+              example: '90240111'
+            street_name:
+              type: string
+              description: Logradouro do endereço.
+              example: RUA FREDERICO MENTZ
+            street_number:
+              type: string
+              description: Número do endereço.
+              example: '1606'
+            complement:
+              type: string
+              description: Complemento do endereço, caso exista.
+              example: LOJA 134 E 135
+            state:
+              type: string
+              description: UF do endereço.
+              example: RS
+            city:
+              type: string
+              description: Cidade do endereço do empregador.
+              example: Porto Alegre
+    PatchPaymentSourceModel:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Razão social do empregador.
+        cpf:
+          type: string
+          pattern: ^\d{11}$
+          description: >-
+            CPF do empregador, apenas números. Necessário que exista ou este
+            campo ou o campo CNPJ mutuamente exclusivos.
+        cnpj:
+          type: string
+          pattern: ^[0-9A-Z]{12}\d{2}$
+          description: >
+            CNPJ do empregador, sem máscara. Aceita o formato numérico
+            tradicional ou o alfanumérico (12 caracteres alfanuméricos
+            maiúsculos seguidos de 2 dígitos verificadores). Necessário que
+            exista ou este campo ou o campo CPF mutuamente exclusivos.
+        external_id:
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          type: string
+        address:
+          type: object
+          properties:
+            cep:
+              type: string
+              description: CEP do endereço deste empregador. Apenas números.
+              example: '01307002'
+            street_name:
+              type: string
+              description: Logradouro do endereço.
+            street_number:
+              type: string
+              description: Número do endereço.
+            complement:
+              type: string
+              description: Complemento do endereço, caso exista.
+            state:
+              type: string
+              description: UF do endereço.
+              example: SC
+            city:
+              type: string
+              description: Cidade do endereço do empregador.
+              example: São Paulo
+    TimesheetModel:
+      title: Espelho único
+      description: >-
+        Espelho de um único funcionário (quando employee_id ou
+        employee_external_id é informado).
+      type: object
+      properties:
+        employee_id:
+          description: ID do funcionário.
+          type: string
+          example: 5f5bc225b511a6e44c2891f6
+        employee_external_id:
+          description: >-
+            ID externo do funcionário. Presente apenas se o funcionário possuir
+            ID externo cadastrado.
+          type: string
+        period:
+          description: Período do espelho de ponto solicitado.
+          type: object
+          properties:
+            start_date:
+              description: Data inicial do espelho.
+              type: string
+              format: date
+            end_date:
+              description: Data final do espelho.
+              type: string
+              format: date
+        totals:
+          description: Totais de cada rubrica dentro do período do espelho de ponto.
+          type: object
+          properties:
+            horas_normais:
+              type: string
+              example: '6.00'
+            banco_horas:
+              description: >
+                Saldo de banco de horas. Presente apenas quando o período
+                solicitado corresponde a uma folha de ponto completa; não é
+                calculado para períodos parciais.
+              type: string
+              example: '123.00'
+            falta_injustificada:
+              type: string
+              example: '36.00'
+            falta_justificada:
+              type: string
+              example: '12.00'
+            abono:
+              type: string
+              example: '4.00'
+            folga:
+              type: string
+              example: '1.00'
+            atraso:
+              type: string
+              example: '22.13'
+            dsr:
+              type: string
+              example: '8.00'
+            desconto_dsr:
+              type: string
+              example: '16.00'
+            inss:
+              type: string
+              example: '40.00'
+            atestado:
+              type: string
+              example: '1.00'
+            dispensa_legal:
+              type: string
+              example: '2.00'
+            adicional_noturno:
+              type: string
+              example: '1.20'
+            extra_50:
+              type: string
+              example: '1.00'
+            extra_75:
+              type: string
+              example: '2.00'
+            extra_100:
+              type: string
+              example: '3.00'
+            extra_200:
+              type: string
+              example: '4.00'
+            adicional_noturno_extra_50:
+              type: string
+              example: '2.13'
+            adicional_noturno_extra_75:
+              type: string
+              example: '1.12'
+            adicional_noturno_extra_100:
+              type: string
+              example: '1.00'
+            adicional_noturno_extra_200:
+              type: string
+              example: '2.89'
+            hora_noturna_reduzida:
+              type: string
+              example: '2.30'
+            afastamento_nao_remunerado:
+              type: string
+              example: '2.50'
+            sobreaviso:
+              type: string
+              example: '5.55'
+            suspensao:
+              type: string
+              example: '6.77'
+            ferias:
+              type: string
+              example: '3.69'
+        days:
+          type: object
+          description: >
+            Detalhes de cada um dos dias da folha de ponto, contendo os horários
+            de batidas e rubricas parciais dos dias.
+          properties:
+            horarios:
+              description: Horários de registro de ponto válidos no formato "HH:MM".
+              type: array
+              items:
+                type: string
+              example:
+                - '08:12'
+                - '18:00'
+            horas_normais:
+              type: string
+              example: '6.00'
+            banco_horas:
+              description: >
+                Saldo de banco de horas. Presente apenas quando o período
+                solicitado corresponde a uma folha de ponto completa; não é
+                calculado para períodos parciais.
+              type: string
+              example: '123.00'
+            falta_injustificada:
+              type: string
+              example: '36.00'
+            falta_justificada:
+              type: string
+              example: '12.00'
+            abono:
+              type: string
+              example: '4.00'
+            folga:
+              type: string
+              example: '1.00'
+            atraso:
+              type: string
+              example: '22.13'
+            dsr:
+              type: string
+              example: '8.00'
+            desconto_dsr:
+              type: string
+              example: '16.00'
+            inss:
+              type: string
+              example: '40.00'
+            atestado:
+              type: string
+              example: '1.00'
+            dispensa_legal:
+              type: string
+              example: '2.00'
+            adicional_noturno:
+              type: string
+              example: '1.20'
+            extra_50:
+              type: string
+              example: '1.00'
+            extra_75:
+              type: string
+              example: '2.00'
+            extra_100:
+              type: string
+              example: '3.00'
+            extra_200:
+              type: string
+              example: '4.00'
+            adicional_noturno_extra_50:
+              type: string
+              example: '2.13'
+            adicional_noturno_extra_75:
+              type: string
+              example: '1.12'
+            adicional_noturno_extra_100:
+              type: string
+              example: '1.00'
+            adicional_noturno_extra_200:
+              type: string
+              example: '2.89'
+            hora_noturna_reduzida:
+              type: string
+              example: '2.30'
+            afastamento_nao_remunerado:
+              type: string
+              example: '2.50'
+            sobreaviso:
+              type: string
+              example: '5.55'
+            suspensao:
+              type: string
+              example: '6.77'
+            ferias:
+              type: string
+              example: '3.69'
+        hours_bank_summary:
+          type: object
+          description: >
+            Resumo de banco de horas do período. Presente apenas se o período
+            solicitado corresponder a uma folha de ponto completa, do início ao
+            fim. Não é retornado para períodos parciais.
+          properties:
+            previous_balance:
+              description: >-
+                Saldo anterior de banco de horas gerado até o início deste
+                período.
+              type: string
+              example: '-9.17'
+            generated_balance:
+              description: >-
+                Saldo de banco de horas gerado dentro deste período pelos
+                registros.
+              type: string
+              example: '1.00'
+            created_balance:
+              description: >-
+                Saldo de banco de horas adicionado manualmente dentro deste
+                período.
+              type: string
+              example: '3.00'
+            final_balance:
+              description: Saldo final de banco de horas.
+              type: string
+              example: '-5.17'
+            period:
+              type: object
+              properties:
+                type:
+                  description: >
+                    Tipo de banco de horas configurado, podendo ser `aberto`
+                    onde existe apenas start_date, `cíclico`, que se renova
+                    automaticamente após a quantidade de meses configurada, ou
+                    `fixo`, contendo start_date e end_date fixos.
+                  enum:
+                    - fixed
+                    - open
+                    - cyclic
+                  type: string
+                  example: open
+                start_date:
+                  description: Data de início do período de banco de horas ativo.
+                  type: string
+                  example: '2021-03-10'
+                end_date:
+                  description: Data de fim do período de banco de horas ativo.
+                  type: string
+                  example: '2021-06-09'
+    EmployeeModel:
+      type: object
+      properties:
+        _id:
+          description: Identificador único do recurso, gerado internamente.
+          type: string
+        _created:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _updated:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _etag:
+          $ref: '#/components/schemas/EtagModel'
+        external_id:
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          type: string
+        full_name:
+          description: Nome completo.
+          type: string
+        cpf:
+          description: CPF do funcionário, somente números. Exclusivo com CNPJ.
+          type: string
+          pattern: ^\d{11}$
+          example: '01234567890'
+        cnpj:
+          description: CNPJ em caso de prestador de serviço autônomo. Exclusivo com CPF.
+          type: string
+          pattern: ^\d{14}$
+          example: '41443245000170'
+        nis:
+          description: Código NIS/PIS do funcionário, somente números.
+          type: string
+          pattern: ^\d{11}$
+          example: '12345678901'
+        mobile_phone:
+          description: Número de telefone celular com código de área, somente números.
+          type: string
+          example: '11991234567'
+        work_schedule:
+          description: >-
+            ID da escala de trabalho. Não pode ser removido. Referência para
+            work-schedules.
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          nullable: false
+          example: 5ebee54eee1767f30129e61c
+        phone_country_code:
+          description: Código de país para telefone celular.
+          type: string
+          example: '55'
+          default: '55'
+        email:
+          type: string
+          pattern: ^[a-zA-Z0-9.!#$%&’*+/=?^_{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$
+          example: exemplo@tiquetaque.com
+        birth_date:
+          type: string
+          description: Data de nascimento.
+          format: date
+        city:
+          description: >-
+            Cidade de alocação do funcionário para fins de feriados utilizados
+            na contabilização de horas.
+          type: string
+          example: São Paulo
+        state:
+          description: Estado da cidade de alocação.
+          type: string
+          example: SP
+        timezone:
+          $ref: '#/components/schemas/TimezoneModel'
+        send_app_link:
+          description: >-
+            Enviar por e-mail, no momento da criação, as instruções de uso do
+            app mobile para o funcionário.
+          type: boolean
+          default: false
+        contract_data:
+          type: object
+          properties:
+            registration_number:
+              description: Código de matrícula.
+              type: string
+            payment_source:
+              description: >-
+                ID do empregador deste funcionário. Não pode ser removido.
+                Referência para payment-sources.
+              type: string
+              pattern: ^[0-9a-fA-F]{24}$
+              nullable: false
+              example: 5ebee54eee1767f30129e61c
+            manager:
+              description: >-
+                ID do gestor deste funcionário. Referência externa para qualquer
+                documento de usuário /users.
+              type: string
+              pattern: ^[0-9a-fA-F]{24}$
+              example: 5f5bc225b511a6edec2891f7
+            admission_date:
+              description: Data de admissão.
+              format: date
+              type: string
+            dismissal_date:
+              description: Data de desligamento.
+              format: date
+              type: string
+            records_start_date:
+              description: Data de início dos registros.
+              format: date
+              type: string
+            hour_rate_cents:
+              description: >-
+                Valor hora em centavos utilizado para cálculos de valor de horas
+                extras.
+              type: integer
+              minimum: 1
+            department:
+              type: string
+              description: Departamento
+            job_role:
+              type: string
+              description: Cargo
+            allow_electronic_signature:
+              description: >-
+                Permite que o funcionário realize a assinatura eletrônica do
+                espelho de ponto.
+              default: true
+              type: boolean
+            app_auto_approve:
+              description: Configura aprovação automática de registros realizados via app.
+              type: boolean
+              default: false
+            web_auto_approve:
+              type: boolean
+              description: Configura aprovação automática de registros realizados via web.
+              default: false
+            qrcode_auto_approve:
+              type: boolean
+              description: >-
+                Configura aprovação automática de registros realizados com QR
+                Code.
+              default: false
+            face_auto_approve:
+              type: boolean
+              description: >-
+                Configura aprovação automática de registros realizados com
+                reconhecimento facial.
+              default: false
+            geo_auto_approve:
+              type: boolean
+              description: >-
+                Configura aprovação automática de registros realizados que
+                contenham geolocalização.
+              default: false
+            manual_auto_approve:
+              type: boolean
+              description: Configura aprovação automática de ajustes de ponto manuais.
+              default: false
+            work_leave_auto_approve:
+              type: boolean
+              description: Configura aprovação automática para criação de afastamentos.
+              default: false
+            offline_auto_approve:
+              type: boolean
+              description: Configura aprovação automática para registros off-line via app.
+              default: false
+            requires_geotag:
+              type: boolean
+              description: >-
+                Faz com que seja necessário o envio de dados de geolocalização
+                para o registro de ponto.
+              default: false
+            requires_web_photo:
+              type: boolean
+              description: >-
+                Faz com que seja necessário o envio de foto para o registro de
+                ponto.
+              default: false
+            enabled_geofence:
+              type: boolean
+              description: Habilita a verificação de perímetros para o registro de ponto.
+              default: false
+            requires_justification:
+              type: boolean
+              description: >-
+                Obriga o preenchimento de uma justificativa para ajustes
+                manuais.
+              default: false
+            requires_work_leave_justification:
+              type: boolean
+              description: >-
+                Obriga o preenchimento de uma justificativa para a criação de
+                afasfamentos.
+              default: false
+            allow_web_record:
+              type: boolean
+              description: Permite a realização de registros de ponto via web.
+              default: false
+            allow_face_record:
+              type: boolean
+              description: >-
+                Permite a realização de registros de ponto através de
+                reconhecimento facial.
+              default: false
+            allow_manual_record:
+              type: boolean
+              description: Permite a realização de ajustes manuais pelo funcionário.
+              default: false
+            allow_offline_record:
+              type: boolean
+              description: Permite a realização de registros de ponto off-line.
+              default: false
+            allow_work_leave_record:
+              type: boolean
+              description: >-
+                Permite a criação de registros de afastamento exceto férias pelo
+                funcionário.
+              default: false
+            allow_vacation_work_leave_record:
+              type: boolean
+              description: >-
+                Permite a criação de registros de afastamento do tipo férias
+                pelo funcionário.
+              default: false
+            allow_app_record:
+              type: boolean
+              description: Permite a realização de registros de ponto via app.
+              default: false
+            allow_qrcode_record:
+              type: boolean
+              description: Permite a realização de registros de ponto via TiQR Code.
+              default: false
+            allow_external_api_record:
+              type: boolean
+              description: >-
+                Permite a realização de registros de ponto para o funcionário
+                através desta API.
+              default: true
+            allow_face_store:
+              type: boolean
+              description: >-
+                Permite que o funcionário cadastre o rosto para reconhecimento
+                facial através do seu app.
+              default: false
+            allow_access_app:
+              type: boolean
+              description: Permite acesso ao aplicativo de funcionários.
+              default: false
+            allow_access_web:
+              type: boolean
+              description: Permite acesso web ao funcionário.
+              default: false
+    PostEmployeeModel:
+      type: object
+      required:
+        - full_name
+        - city
+        - state
+      properties:
+        external_id:
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          type: string
+        full_name:
+          description: Nome completo.
+          type: string
+        cpf:
+          description: CPF do funcionário, somente números. Exclusivo com CNPJ.
+          type: string
+          pattern: ^\d{11}$
+          example: '01234567890'
+        cnpj:
+          description: CNPJ em caso de prestador de serviço autônomo. Exclusivo com CPF.
+          type: string
+          pattern: ^\d{14}$
+          example: '41443245000170'
+        nis:
+          description: Código NIS/PIS do funcionário, somente números.
+          type: string
+          pattern: ^\d{11}$
+          example: '12345678901'
+        mobile_phone:
+          description: Número de telefone celular com código de área, somente números.
+          type: string
+          example: '11991234567'
+        work_schedule:
+          description: >-
+            ID da escala de trabalho. Não pode ser removido. Referência para
+            work-schedules.
+          type: string
+          pattern: ^[0-9a-fA-F]{24}$
+          nullable: false
+          example: 5ebee54eee1767f30129e61c
+        phone_country_code:
+          description: Código de país para telefone celular.
+          type: string
+          example: '55'
+          default: '55'
+        email:
+          type: string
+          pattern: ^[a-zA-Z0-9.!#$%&’*+/=?^_{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$
+          example: exemplo@tiquetaque.com
+        birth_date:
+          type: string
+          description: Data de nascimento.
+          format: date
+        city:
+          description: >-
+            Cidade de alocação do funcionário para fins de feriados utilizados
+            na contabilização de horas.
+          type: string
+          example: São Paulo
+        state:
+          description: Estado da cidade de alocação.
+          type: string
+          example: SP
+        timezone:
+          $ref: '#/components/schemas/TimezoneModel'
+        send_app_link:
+          description: >-
+            Enviar por e-mail, no momento da criação, as instruções de uso do
+            app mobile para o funcionário.
+          type: boolean
+          default: false
+        contract_data:
+          type: object
+          properties:
+            payment_source:
+              description: >-
+                ID do empregador deste funcionário. Não pode ser removido.
+                Referência para payment-sources.
+              type: string
+              pattern: ^[0-9a-fA-F]{24}$
+              nullable: false
+              example: 5ebee54eee1767f30129e61c
+            manager:
+              description: >-
+                ID do gestor deste funcionário. Referência externa para qualquer
+                documento de usuário /users.
+              type: string
+              pattern: ^[0-9a-fA-F]{24}$
+              example: 5f5bc225b511a6edec2891f7
+            registration_number:
+              description: Código de matrícula.
+              type: string
+            admission_date:
+              description: Data de admissão.
+              format: date
+              type: string
+            dismissal_date:
+              description: Data de desligamento.
+              format: date
+              type: string
+            records_start_date:
+              description: Data de início dos registros
+              format: date
+              type: string
+            hour_rate_cents:
+              description: >-
+                Valor hora em centavos utilizado para cálculos de valor de horas
+                extras.
+              type: integer
+            department:
+              type: string
+              description: Departamento
+            job_role:
+              type: string
+              description: Cargo
+            allow_electronic_signature:
+              description: >-
+                Permite que o funcionário realize a assinatura eletrônica do
+                espelho de ponto.
+              default: true
+              type: boolean
+            app_auto_approve:
+              description: Configura aprovação automática de registros realizados via app.
+              type: boolean
+              default: false
+            web_auto_approve:
+              type: boolean
+              description: Configura aprovação automática de registros realizados via web.
+              default: false
+            qrcode_auto_approve:
+              type: boolean
+              description: >-
+                Configura aprovação automática de registros realizados com QR
+                Code.
+              default: false
+            face_auto_approve:
+              type: boolean
+              description: >-
+                Configura aprovação automática de registros realizados com
+                reconhecimento facial.
+              default: false
+            geo_auto_approve:
+              type: boolean
+              description: >-
+                Configura aprovação automática de registros realizados que
+                contenham geolocalização.
+              default: false
+            manual_auto_approve:
+              type: boolean
+              description: Configura aprovação automática de ajustes de ponto manuais.
+              default: false
+            work_leave_auto_approve:
+              type: boolean
+              description: Configura aprovação automática para criação de afastamentos.
+              default: false
+            offline_auto_approve:
+              type: boolean
+              description: Configura aprovação automática para registros off-line via app.
+              default: false
+            requires_geotag:
+              type: boolean
+              description: >-
+                Faz com que seja necessário o envio de dados de geolocalização
+                para o registro de ponto.
+              default: false
+            requires_web_photo:
+              type: boolean
+              description: >-
+                Faz com que seja necessário o envio de foto para o registro de
+                ponto.
+              default: false
+            enabled_geofence:
+              type: boolean
+              description: Habilita a verificação de perímetros para o registro de ponto.
+              default: false
+            requires_justification:
+              type: boolean
+              description: >-
+                Obriga o preenchimento de uma justificativa para ajustes
+                manuais.
+              default: false
+            requires_work_leave_justification:
+              type: boolean
+              description: >-
+                Obriga o preenchimento de uma justificativa para a criação de
+                afasfamentos.
+              default: false
+            allow_web_record:
+              type: boolean
+              description: Permite a realização de registros de ponto via web.
+              default: false
+            allow_face_record:
+              type: boolean
+              description: >-
+                Permite a realização de registros de ponto através de
+                reconhecimento facial.
+              default: false
+            allow_manual_record:
+              type: boolean
+              description: Permite a realização de ajustes manuais pelo funcionário.
+              default: false
+            allow_offline_record:
+              type: boolean
+              description: Permite a realização de registros de ponto off-line.
+              default: false
+            allow_work_leave_record:
+              type: boolean
+              description: >-
+                Permite a criação de registros de afastamento exceto férias pelo
+                funcionário.
+              default: false
+            allow_vacation_work_leave_record:
+              type: boolean
+              description: >-
+                Permite a criação de registros de afastamento do tipo férias
+                pelo funcionário.
+              default: false
+            allow_app_record:
+              type: boolean
+              description: Permite a realização de registros de ponto via app.
+              default: false
+            allow_qrcode_record:
+              type: boolean
+              description: Permite a realização de registros de ponto via TiQR Code.
+              default: false
+            allow_external_api_record:
+              type: boolean
+              description: >-
+                Permite a realização de registros de ponto para o funcionário
+                através desta API.
+              default: true
+            allow_face_store:
+              type: boolean
+              description: >-
+                Permite que o funcionário cadastre o rosto para reconhecimento
+                facial através do seu app.
+              default: false
+            allow_access_app:
+              type: boolean
+              description: Permite acesso ao aplicativo de funcionários.
+              default: false
+            allow_access_web:
+              type: boolean
+              description: Permite acesso web ao funcionário.
+              default: false
+    ErroRespostaModel:
+      description: Resposta de erro
+      type: object
+      properties:
+        _code:
+          description: Código de erro interno.
+          type: integer
+        _status:
+          type: string
+          example: ERR
+        _error:
+          type: object
+          properties:
+            code:
+              description: Codigo de erro HTTP.
+              type: integer
+            message:
+              description: Mensagem de erro interna.
+              type: string
+            ui_message:
+              description: Mensagem de erro para o usuário.
+              type: string
+    ErroLoteRespostaModel:
+      description: >
+        Resposta de erro de uma requisição em lote. Além dos campos da resposta
+        de erro padrão, traz o campo `_issues` com os erros de cada item que
+        falhou.
+      allOf:
+        - $ref: '#/components/schemas/ErroRespostaModel'
+        - type: object
+          properties:
+            _issues:
+              description: >
+                Erros de validação por item. Cada chave é a posição (índice,
+                iniciando em 0) do item na lista enviada e apenas os itens com
+                erro estão presentes. O valor é um objeto com os erros do item,
+                indexados pelo campo a que se referem, seguindo a estrutura do
+                corpo enviado (erros de campos aninhados, como os de
+                `contract_data`, vêm aninhados). Erros que não pertencem a um
+                campo, como um item que não é um objeto, são indexados por
+                `employees`.
+              type: object
+              additionalProperties:
+                type: object
+                additionalProperties: true
+              example:
+                '1':
+                  full_name: Campo obrigatório.
+                  state: Campo com valor inválido.
+                '2':
+                  contract_data:
+                    records_start_date: Campo obrigatório.
+    AfastamentoModel:
+      type: object
+      properties:
+        _id:
+          description: ID do afastamento
+          type: string
+        _created:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _updated:
+          $ref: '#/components/schemas/IsoDateTimeTzModel'
+        _etag:
+          $ref: '#/components/schemas/EtagModel'
+        employee_id:
+          description: ID do funcionário
+          type: string
+        type:
+          $ref: '#/components/schemas/TipoAfastamentoModel'
+        end_date:
+          type: string
+          format: date
+        start_date:
+          type: string
+          format: date
+        approval_info:
+          type: object
+          properties:
+            approved:
+              type: boolean
+              description: Indica se o afastamento foi aprovado.
+            request_date:
+              type: string
+              description: Data em que o afastamento foi solicitado.
+              example: '2020-05-05T08:28:14+00:00'
+            change_request:
+              type: object
+              properties:
+                approved_date:
+                  type: string
+                  description: Data em que o afastamento foi aprovado, caso tenha sido.
+                  example: '2020-05-05T08:28:14+00:00'
+                rejected_date:
+                  type: string
+                  description: Data em que o afastamento foi rejeitado, caso tenha sido.
+                  example: '2020-05-05T08:28:14+00:00'
+                rejected_by:
+                  type: object
+                  description: Dados existentes apenas quando o afastamento foi rejeitado.
+                  properties:
+                    id:
+                      type: string
+                      description: ID do usuário que rejeitou o afastamento.
+                    name:
+                      description: Nome do funcionário que rejeitou o afastamento.
+                      type: string
+                approved_by:
+                  type: object
+                  description: Dados existentes apenas quando o afastamento foi aprovado.
+                  properties:
+                    id:
+                      type: string
+                      description: ID do usuário que aprovou o afastamento.
+                    name:
+                      description: Nome do funcionário que aprovou o afastamento.
+                      type: string
+    LinksModel:
+      type: object
+      properties:
+        parent:
+          type: object
+          properties:
+            href:
+              type: string
+            title:
+              type: string
+        self:
+          type: object
+          properties:
+            href:
+              type: string
+            title:
+              type: string
+    MetaModel:
+      type: object
+      properties:
+        max_results:
+          type: integer
+        page:
+          type: integer
+        total:
+          type: integer
+    TipoAfastamentoModel:
+      type: string
+      enum:
+        - abono
+        - afastamento
+        - atestado
+        - dispensa_legal
+        - falta_justificada
+        - falta_injustificada
+        - ferias
+        - folga
+        - inss
+        - suspensao
+    StatusAfastamentoModel:
+      type: string
+      enum:
+        - aprovado
+        - pendente
+        - reprovado
+    DateParamModel:
+      type: string
+      format: date
+      example: '2023-09-27'
+    TimeParamModel:
+      type: string
+      example: HH:MM
+    MaxResultsParamModel:
+      type: integer
+      description: Tamanho da página dos resultados, valor padrão 25.
+      default: 25
+    PageParamModel:
+      type: integer
+      description: Número da página de resultados solicitada.
+      default: 1
+  examples:
+    401_example:
+      value:
+        _code: 9
+        _error:
+          code: 401
+          message: Invalid account credentials.
+          ui_message: Credenciais inválidas
+        _status: ERR
+    422_example:
+      value:
+        _code: 1300
+        _error:
+          code: 422
+          message: Missing 'p1' query parameter.
+          ui_message: Falta o parâmetro 'p1' na requisição.
+        _status: ERR
+paths:
+  /work-schedules/summary:
+    get:
+      operationId: getWorkSchedulesSummary
+      tags:
+        - Escalas
+      summary: Lista com sumário de escalas de trabalho
+      description: >-
+        Retorna a listagem paginada de nomes de escalas de trabalho ativas e
+        visíveis, com o correspondente ID.
+      parameters:
+        - name: max_results
+          description: Tamanho da página de resultados paginados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: Número da página de resultados a retornar
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: Lista de usuários.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkScheduleSummaryModel'
+                  _links:
+                    $ref: '#/components/schemas/LinksModel'
+                  _meta:
+                    $ref: '#/components/schemas/MetaModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: usuário not found.
+                  ui_message: usuário não encontrado.
+                _status: ERR
+  /users:
+    post:
+      operationId: createUser
+      tags:
+        - Usuários
+      summary: Cria um novo usuário
+      description: |
+        Cria um novo usuário.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPostModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _created:
+                    $ref: '#/components/schemas/IsoDateTimeTzModel'
+                  _etag:
+                    $ref: '#/components/schemas/EtagModel'
+                  _status:
+                    type: string
+                    example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '409':
+          description: Erro de validação dos dados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+        '422':
+          description: Parâmetro obrigatório ausente ou com formato inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+    get:
+      operationId: getUsers
+      tags:
+        - Usuários
+      summary: Lista usuários da conta
+      description: |
+        Retorna uma lista com os usuários da conta.
+      parameters:
+        - name: max_results
+          description: Tamanho da página de resultados paginados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: Número da página de resultados a retornar
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: Lista de usuários.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserModel'
+                  _links:
+                    $ref: '#/components/schemas/LinksModel'
+                  _meta:
+                    $ref: '#/components/schemas/MetaModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: usuário not found.
+                  ui_message: usuário não encontrado.
+                _status: ERR
+  /users/{id}:
+    get:
+      operationId: getUserById
+      tags:
+        - Usuários
+      summary: Detalhes de um usuário
+      description: |
+        Retorna um usuário específico.
+      parameters:
+        - name: id
+          description: ID do usuário.
+          required: true
+          schema:
+            type: string
+          in: path
+      responses:
+        '200':
+          description: Usuário encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro usuário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: usuário not found.
+                  ui_message: usuário não encontrado.
+                _status: ERR
+    patch:
+      operationId: updateUser
+      tags:
+        - Usuários
+      summary: Atualiza um usuário
+      description: |
+        Atualiza um usuário específico.
+      parameters:
+        - name: id
+          description: ID do usuário.
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para atualizar um documento é necessário o header com o valor do
+            campo `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPostModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _created:
+                    $ref: '#/components/schemas/IsoDateTimeTzModel'
+                  _etag:
+                    $ref: '#/components/schemas/EtagModel'
+                  _status:
+                    type: string
+                    example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+    delete:
+      operationId: deleteUser
+      tags:
+        - Usuários
+      summary: Exclui um usuário
+      parameters:
+        - name: id
+          description: ID do usuário.
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para remover um documento é necessário o header com o valor do campo
+            `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '204':
+          description: Cadastro excluído com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /payment-sources:
+    post:
+      tags:
+        - Empregadores
+      summary: Adiciona um novo empregador
+      operationId: postPaymentSource
+      description: >
+        Cria o novo empregador. Não é suportada a configuração de dados dos
+        layouts de exportação através desta API.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentSourceModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _created:
+                    $ref: '#/components/schemas/IsoDateTimeTzModel'
+                  _etag:
+                    $ref: '#/components/schemas/EtagModel'
+                  _status:
+                    type: string
+                    example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '409':
+          description: Erro de validação dos dados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+        '422':
+          description: Parâmetro obrigatório ausente ou com formato inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+    get:
+      operationId: getPaymentSources
+      tags:
+        - Empregadores
+      summary: Lista os empregadores
+      description: >
+        Lista todos empregadores ativos da conta. Pode ser filtrado por CNPJ
+        e/ou CPF, útil para localizar empregadores criados na TiqueTaque que
+        ainda não possuem `external_id`.
+      parameters:
+        - name: cnpj
+          description: >
+            Filtra empregadores pelo CNPJ, sem máscara. Aceita o formato
+            numérico ou alfanumérico (12 caracteres alfanuméricos maiúsculos
+            seguidos de 2 dígitos verificadores). Se enviado junto com `cpf`,
+            retorna os empregadores que casam com qualquer um dos dois (OR).
+          required: false
+          in: query
+          schema:
+            type: string
+            pattern: ^[0-9A-Z]{12}\d{2}$
+            example: '23467093000164'
+        - name: cpf
+          description: >
+            Filtra empregadores pelo CPF, apenas números, sem máscara. Se
+            enviado junto com `cnpj`, retorna os empregadores que casam com
+            qualquer um dos dois (OR).
+          required: false
+          in: query
+          schema:
+            type: string
+            pattern: ^\d{11}$
+            example: '01234567890'
+        - name: max_results
+          description: Tamanho da página de resultados paginados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: Número da página de resultados a retornar
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: Lista de usuários.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentSourceModel'
+                  _links:
+                    $ref: '#/components/schemas/LinksModel'
+                  _meta:
+                    $ref: '#/components/schemas/MetaModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro empregador não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: empregador not found.
+                  ui_message: empregador não encontrado.
+                _status: ERR
+        '422':
+          description: Filtro `cnpj` ou `cpf` com formato inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1403
+                _error:
+                  code: 422
+                  message: Invalid format for cnpj.
+                  ui_message: cnpj com formato inválido.
+                _status: ERR
+  /payment-sources/{id}:
+    get:
+      operationId: getPaymentSourceById
+      tags:
+        - Empregadores
+      summary: Dados de um empregador
+      description: |
+        Retorna um empregador pelo ID.
+      parameters:
+        - name: id
+          description: ID do empregador. Pode ser usado tanto `_id` quanto `external_id`
+          required: true
+          schema:
+            type: string
+          in: path
+      responses:
+        '200':
+          description: Empregador encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSourceModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro empregador não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: empregador not found.
+                  ui_message: empregador não encontrado.
+                _status: ERR
+    patch:
+      operationId: updatePaymentSource
+      tags:
+        - Empregadores
+      summary: Atualiza um empregador
+      description: |
+        Atualiza um empregador.
+      parameters:
+        - name: id
+          description: >
+            Identificador externo a ser preenchido pelo cliente. Deve ser único.
+            IMPORTANTE: Para remover a chave em um PATCH, deve ser enviado como
+            valor uma string vazia ("").
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para atualizar um documento é necessário o header com o valor do
+            campo `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchPaymentSourceModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _created:
+                    $ref: '#/components/schemas/IsoDateTimeTzModel'
+                  _etag:
+                    $ref: '#/components/schemas/EtagModel'
+                  _status:
+                    type: string
+                    example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+    delete:
+      operationId: deletePaymentSource
+      tags:
+        - Empregadores
+      summary: Exclui um empregador
+      parameters:
+        - name: id
+          description: ID do empregador. Pode ser usado tanto `_id` quanto `external_id`
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para remover um documento é necessário o header com o valor do campo
+            `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '204':
+          description: Cadastro excluído com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /sites:
+    post:
+      operationId: createSite
+      tags:
+        - Unidades
+      summary: Cria uma nova unidade
+      description: >
+        Cria uma nova unidade. Unidades agrupam funcionários e podem ser
+        utilizadas para vincular funcionários aos aparelhos TiqueTaque
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _created:
+                    $ref: '#/components/schemas/IsoDateTimeTzModel'
+                  _etag:
+                    $ref: '#/components/schemas/EtagModel'
+                  _status:
+                    type: string
+                    example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '409':
+          description: Erro de validação dos dados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+        '422':
+          description: Parâmetro obrigatório ausente ou com formato inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+    get:
+      operationId: getSites
+      tags:
+        - Unidades
+      summary: Retorna uma lista com as unidades ativas da conta
+      description: |
+        Lista as unidades ativas
+      parameters:
+        - name: max_results
+          description: Tamanho da página de resultados paginados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: Número da página de resultados a retornar
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: Lista de usuários.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SiteModel'
+                  _links:
+                    $ref: '#/components/schemas/LinksModel'
+                  _meta:
+                    $ref: '#/components/schemas/MetaModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro unidade não encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: unidade not found.
+                  ui_message: unidade não encontrada.
+                _status: ERR
+  /sites/{id}:
+    get:
+      operationId: getSiteById
+      tags:
+        - Unidades
+      summary: Detalhes de  uma unidade
+      description: |
+        Retorna uma unidade específica.
+      parameters:
+        - name: id
+          description: ID da unidade.
+          required: true
+          schema:
+            type: string
+          in: path
+      responses:
+        '200':
+          description: Unidade encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro unidade não encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: unidade not found.
+                  ui_message: unidade não encontrada.
+                _status: ERR
+    patch:
+      operationId: updateSite
+      tags:
+        - Unidades
+      summary: Atualiza uma unidade
+      description: |
+        Atualiza uma unidade específica.
+      parameters:
+        - name: id
+          description: ID da unidade.
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para atualizar um documento é necessário o header com o valor do
+            campo `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _created:
+                    $ref: '#/components/schemas/IsoDateTimeTzModel'
+                  _etag:
+                    $ref: '#/components/schemas/EtagModel'
+                  _status:
+                    type: string
+                    example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+    delete:
+      operationId: deleteSite
+      tags:
+        - Unidades
+      summary: Exclui uma unidade
+      parameters:
+        - name: id
+          description: ID da unidade.
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para remover um documento é necessário o header com o valor do campo
+            `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '204':
+          description: Cadastro excluído com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '428':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /work-leaves:
+    post:
+      operationId: createWorkLeave
+      tags:
+        - Afastamentos
+      summary: Cria um afastamento para um funcionário
+      requestBody:
+        description: >
+          O afastamento pode ser parcial ou de dia inteiro. Os valores
+          `start_time` e `end_time` são opcionais, e devem ser preenchidos caso
+          o afastamento seja parcial. Caso seja de dia inteiro, informar apenas
+          `start_date` e `end_date`. Um dos valores entre `employee_id` e 
+          `employee_external_id` é obrigatório e são mutuamente exclusivos.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                employee_id:
+                  description: >-
+                    ID do funcionário. Obrigatório caso `employee_external_id`
+                    não esteja presente.
+                  type: string
+                employee_external_id:
+                  description: >-
+                    ID externo do funcionário. Obrigatório caso `employee_id`
+                    não esteja presente.
+                  type: string
+                type:
+                  $ref: '#/components/schemas/TipoAfastamentoModel'
+                start_date:
+                  $ref: '#/components/schemas/DateParamModel'
+                end_date:
+                  $ref: '#/components/schemas/DateParamModel'
+                start_time:
+                  $ref: '#/components/schemas/TimeParamModel'
+                end_time:
+                  $ref: '#/components/schemas/TimeParamModel'
+      responses:
+        '200':
+          description: Afastamento criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _status:
+                    type: string
+                    example: OK
+                  _created:
+                    type: string
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '409':
+          description: Erro de validação dos dados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+        '422':
+          description: Erro por parâmetros incorretos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+    get:
+      operationId: getWorkLeaves
+      tags:
+        - Afastamentos
+      summary: Retorna uma lista com os afastamentos de um funcionário
+      description: >
+        Os afastamentos retornados, conforme os filtros aplicados são associados
+        a um funcionário identificado por `employee_id`. Eles representam
+        variados motivos que fazem com que o funcionário deixe de trabalhar o
+        tempo previsto. Retorna todos os registros de afastamentos que contenham
+        as  datas entre *start_date* e *end_date*. Resultado paginado
+      parameters:
+        - name: employee_id
+          description: >-
+            ID do funcionário. Obrigatório caso `employee_external_id` não
+            esteja presente.
+          schema:
+            type: string
+          in: query
+        - name: employee_external_id
+          description: >-
+            ID externo do funcionário. Obrigatório caso `employee_id` não esteja
+            presente.
+          schema:
+            type: string
+          in: query
+        - name: start_date
+          description: |
+            Filtro para data de início dos afastamentos.
+          required: true
+          in: query
+          schema:
+            $ref: '#/components/schemas/DateParamModel'
+        - name: end_date
+          description: Filtro para data de fim dos afastamentos
+          required: true
+          in: query
+          schema:
+            $ref: '#/components/schemas/DateParamModel'
+        - name: type
+          description: filtro por tipo de afastamento.
+          required: false
+          schema:
+            $ref: '#/components/schemas/TipoAfastamentoModel'
+          in: query
+        - name: status
+          description: filtro por situação do afastamento.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/StatusAfastamentoModel'
+        - name: max_results
+          description: Tamanho da página de resultados paginados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: Número da página de resultados a retornar
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: >-
+            Retorna listagem de todos os afastamentos que atendem aos critérios
+            dos filtros.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AfastamentoModel'
+                  _links:
+                    $ref: '#/components/schemas/LinksModel'
+                  _meta:
+                    $ref: '#/components/schemas/MetaModel'
+        '404':
+          description: Erro afastamento não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: afastamento not found.
+                  ui_message: afastamento não encontrado.
+                _status: ERR
+        '422':
+          description: Parâmetro obrigatório ausente ou com formato inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+  /work-leaves/{id}/approve:
+    patch:
+      operationId: approveWorkLeave
+      tags:
+        - Afastamentos
+      summary: Aprova um afastamento
+      parameters:
+        - name: id
+          description: ID do afastamento
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para aprovar um afastamento é necessário o header com o valor do
+            campo `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /work-leaves/{id}/reject:
+    patch:
+      operationId: rejectWorkLeave
+      tags:
+        - Afastamentos
+      summary: Reprova um afastamento
+      parameters:
+        - name: id
+          description: ID do funcionário. Pode ser usado tanto `id` quanto `external_id`
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para reprovar um afastamento é necessário o header com o valor do
+            campo `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /work-leaves/{id}:
+    get:
+      operationId: getWorkLeaveById
+      tags:
+        - Afastamentos
+      summary: Retorna os dados de um afastamento
+      description: |
+        Retorna todos campos de
+      parameters:
+        - name: id
+          description: ID do afastamento.
+          required: true
+          schema:
+            type: string
+          in: path
+      responses:
+        '200':
+          description: Dados cadastrados para o afastamento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AfastamentoModel'
+        '404':
+          description: Se o ID do afastamento não corresponder a um existente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: resource not found.
+                  ui_message: afastamento não encontrado.
+                _status: ERR
+    delete:
+      operationId: deleteWorkLeave
+      tags:
+        - Afastamentos
+      summary: Exclui um afastamento
+      parameters:
+        - name: id
+          description: ID do afastamento.
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para remover um documento é necessário o header com o valor do campo
+            `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '204':
+          description: Cadastro excluído com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /employees:
+    post:
+      operationId: createEmployee
+      tags:
+        - Funcionários
+      summary: Cadastra um novo funcionário
+      description: >
+        Para detalhes dos formatos de dados do corpo da requisição, veja a
+        descrição do schema.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostEmployeeModel'
+      responses:
+        '200':
+          description: Novo funcionário criado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  _status:
+                    type: string
+                    example: OK
+                  _created:
+                    type: string
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '409':
+          description: Erro de validação dos dados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+        '422':
+          description: Parâmetro obrigatório ausente ou com formato inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+    get:
+      operationId: getEmployees
+      tags:
+        - Funcionários
+      summary: Lista o cadastro dos funcionários ativos
+      description: >
+        Resultado paginado. A ausência de um campo na resposta indica que seu
+        valor ainda não foi definido. Pode ser filtrado por empregador
+        (`payment_source`), útil para localizar funcionários de um empregador
+        específico que ainda não possuem `external_id`. Quando nenhum
+        funcionário é encontrado, a resposta é 200 com `_items` vazio.
+      parameters:
+        - name: payment_source
+          description: >
+            Filtra os funcionários pelo `_id` do empregador (payment-source)
+            vinculado. Deve ser um ObjectId válido.
+          required: false
+          in: query
+          schema:
+            type: string
+            example: 5f3551beeb623e8ebe0ae994
+        - name: max_results
+          description: Tamanho da página de resultados paginados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: Número da página de resultados a retornar
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: >
+            Lista de funcionários. Quando nenhum funcionário atende à consulta,
+            o retorno também é 200, com `_items` vazio e `_meta.total` igual a
+            0.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EmployeeModel'
+                  _links:
+                    $ref: '#/components/schemas/LinksModel'
+                  _meta:
+                    $ref: '#/components/schemas/MetaModel'
+              examples:
+                lista_vazia:
+                  summary: Nenhum funcionário encontrado
+                  value:
+                    _items: []
+                    _links:
+                      parent:
+                        href: /
+                        title: home
+                    _meta:
+                      max_results: 25
+                      page: 1
+                      total: 0
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '422':
+          description: Filtro `payment_source` com formato inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1403
+                _error:
+                  code: 422
+                  message: Invalid format for payment_source.
+                  ui_message: payment_source com formato inválido.
+                _status: ERR
+  /employees/bulk:
+    post:
+      operationId: createEmployeesBulk
+      tags:
+        - Funcionários
+      summary: Cadastra funcionários em lote
+      description: >
+        Cria vários funcionários em uma única requisição (até 100), reduzindo o
+        número de chamadas frente ao limite de 60 requisições por minuto. A
+        operação é atômica: todos os itens são validados antes da criação e, se
+        qualquer um falhar, nenhum funcionário é criado.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - employees
+              properties:
+                employees:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  description: >
+                    Lista de funcionários a criar. Cada item segue o mesmo
+                    formato do cadastro individual.
+                  items:
+                    $ref: '#/components/schemas/PostEmployeeModel'
+      responses:
+        '200':
+          description: Todos os funcionários foram criados com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        _created:
+                          $ref: '#/components/schemas/IsoDateTimeTzModel'
+                        _etag:
+                          $ref: '#/components/schemas/EtagModel'
+                        _status:
+                          type: string
+                          example: OK
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '422':
+          description: >
+            Lote com tamanho inválido (vazio ou acima de 100), ou um ou mais
+            itens com erro de validação. Quando há erros de validação nenhum
+            funcionário é criado e o campo `_issues` traz os erros de cada item
+            que falhou, indexados pela posição do item na lista enviada e,
+            dentro dela, pelo campo a que o erro se refere. Os mesmos erros
+            também são descritos, em texto, nas mensagens de `_error`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroLoteRespostaModel'
+              examples:
+                tamanho_invalido:
+                  summary: Lista vazia ou com mais de 100 itens
+                  value:
+                    _code: 1427
+                    _error:
+                      code: 422
+                      message: >-
+                        The 'employees' list must contain between 1 and 100
+                        items.
+                      ui_message: A lista 'employees' deve conter entre 1 e 100 itens.
+                    _status: ERR
+                itens_invalidos:
+                  summary: >
+                    Itens com erro de validação. No exemplo, o item da posição 0
+                    é válido, o da posição 1 está sem `full_name` e com `state`
+                    inválido, o da posição 2 tem `city` vazio, `birth_date` com
+                    formato inválido e está sem
+                    `contract_data.records_start_date`, e o da posição 3 informa
+                    um `contract_data.payment_source` que não existe.
+                  value:
+                    _code: 157
+                    _error:
+                      code: 422
+                      message: >-
+                        Errors found for fields: {1: ['Campo full_name
+                        obrigatório.', 'Campo state com valor inválido.'], 2:
+                        ['Campo birth_date com formato inválido.', 'Campo city
+                        não pode ser vazio.', 'Campo records_start_date
+                        obrigatório.'], 3: ['Documento com id
+                        aaaaaaaaaaaaaaaaaaaaaaaa não encontrado no recurso
+                        payment_sources.']}
+                      ui_message: >-
+                        Os seguintes erros foram encontrados: {1: ['Campo
+                        full_name obrigatório.', 'Campo state com valor
+                        inválido.'], 2: ['Campo birth_date com formato
+                        inválido.', 'Campo city não pode ser vazio.', 'Campo
+                        records_start_date obrigatório.'], 3: ['Documento com id
+                        aaaaaaaaaaaaaaaaaaaaaaaa não encontrado no recurso
+                        payment_sources.']}
+                    _status: ERR
+                    _issues:
+                      '1':
+                        full_name: Campo obrigatório.
+                        state: Campo com valor inválido.
+                      '2':
+                        birth_date: Campo com formato inválido.
+                        city: Campo não pode ser vazio.
+                        contract_data:
+                          records_start_date: Campo obrigatório.
+                      '3':
+                        contract_data:
+                          payment_source: >-
+                            Documento com id aaaaaaaaaaaaaaaaaaaaaaaa não
+                            encontrado no recurso payment_sources.
+                item_nao_objeto:
+                  summary: Item da lista que não é um objeto
+                  value:
+                    _code: 157
+                    _error:
+                      code: 422
+                      message: >-
+                        Errors found for fields: {2: ['Campo employees deve
+                        conter objetos.']}
+                      ui_message: >-
+                        Os seguintes erros foram encontrados: {2: ['Campo
+                        employees deve conter objetos.']}
+                    _status: ERR
+                    _issues:
+                      '2':
+                        employees: Campo employees deve conter objetos.
+  /employees/{id}:
+    patch:
+      operationId: updateEmployee
+      tags:
+        - Funcionários
+      summary: Atualiza um funcionário
+      parameters:
+        - name: id
+          description: ID do funcionário. Pode ser usado tanto `id` quanto `external_id`
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para atualizar um documento é necessário o header com o valor do
+            campo `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostEmployeeModel'
+      responses:
+        '200':
+          description: Dados atualizados com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+    get:
+      operationId: getEmployeeById
+      tags:
+        - Funcionários
+      summary: Retorna os detalhes de um funcionário
+      description: |
+        São retornados os funcionário ativos apenas.
+      parameters:
+        - name: id
+          description: ID do funcionário. Pode ser usado tanto `_id` quanto `external_id`
+          required: true
+          schema:
+            type: string
+          in: path
+      responses:
+        '200':
+          description: Lista de funcionários.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeModel'
+        '404':
+          description: Se o ID do funcionário não corresponder a um existente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: resource not found.
+                  ui_message: funcionário não encontrado.
+                _status: ERR
+    delete:
+      operationId: deleteEmployee
+      tags:
+        - Funcionários
+      summary: Exclui um funcionário
+      parameters:
+        - name: id
+          description: ID do funcionário. Pode ser usado tanto `_id` quanto `external_id`
+          required: true
+          schema:
+            type: string
+          in: path
+        - name: If-Match
+          description: >
+            Para remover um documento é necessário o header com o valor do campo
+            `_etag` atual do documento.
+          required: true
+          schema:
+            type: string
+          in: header
+      responses:
+        '204':
+          description: Cadastro excluído com sucesso.
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '412':
+          description: Erro _etag inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1352
+                _error:
+                  code: 412
+                  message: Invalid If-Match header.
+                  ui_message: Cabeçalho If-Match inválido.
+                _status: ERR
+        '428':
+          description: Erro _etag ausente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 1406
+                _error:
+                  code: 428
+                  message: >-
+                    To edit a document its etag must be provided using the
+                    If-Match header.
+                  ui_message: Erro de versão ao atualizar documento.
+                _status: ERR
+  /times:
+    post:
+      operationId: createTimeRecord
+      tags:
+        - Registros de ponto
+      summary: Adiciona um registro de ponto
+      description: >
+        Adiciona um registro por vez para o funcionário na data e hora passada.
+        Este registro é armazenado como um registro com type='registro externo'.
+
+         *IMPORTANTE:* Os registros de um funcionário mesmo que inseridos com
+        sucesso por este endpoint, serão exibidos na interface do admin
+        TiqueTaque apenas se o cadastro do  funcionário possuir uma escala e um
+        empregador configurados. Depois de configurados os campos os registros 
+        previamente adicionados serão exibidos também. <br>
+         **Os campos `employee_id` e `employee_external_id` são mutuamente exclusivos no corpo da requisição.**
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                employee_id:
+                  type: string
+                employee_external_id:
+                  type: string
+                time:
+                  $ref: '#/components/schemas/IsoDateTimeModel'
+      responses:
+        '200':
+          description: OK
+          content:
+            applicaton/json:
+              schema:
+                type: object
+                properties:
+                  _status:
+                    type: string
+                    example: OK
+                  employee:
+                    type: string
+                    example: fff5bc225b511a6edec2873ff
+                  time:
+                    $ref: '#/components/schemas/IsoDateTimeModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '403':
+          description: Sem permissão para realizar registros via API
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _code:
+                    type: integer
+                    example: 156
+                  _error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                        example: 403
+                      message:
+                        type: string
+                        example: No permission for external records.
+                      ui_message:
+                        type: string
+                        example: >-
+                          Você não possui permissão para adicionar registros via
+                          API.
+                  status:
+                    type: string
+                    example: ERR
+        '404':
+          description: ID de funcionário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: resource not found.
+                  ui_message: funcionário não encontrado.
+                _status: ERR
+        '422':
+          description: >
+            Erros de formato de dados de entrada. Os erros podem ser por motivos
+            variados como falta de  algum dos parâmetros, ou formatos inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+    get:
+      operationId: getTimeRecords
+      tags:
+        - Registros de ponto
+      summary: Registros de ponto
+      description: >
+        Retorna os detalhes dos registros para o funcionário solicitado, dentro
+        do intervalo,
+
+        o formato da resposta é o seguinte:
+
+
+        ```
+
+        {
+            "employee_id": "5f5bc225b511a6e44c2891f6",
+            "times": [
+                {
+                    "approved": true,
+                    "justification": "Esqueci de registrar",
+                    "time": "2024-09-25T07:32",
+                    "type": "ajuste manual"
+                },
+                {
+                    "approved": true,
+                    "justification": "Registro via app com geolocalização",
+                    "time": "2024-09-25T11:59",
+                    "type": "app"
+                }
+            ]
+        }
+
+        ```
+
+
+        | Chave         |
+        Descrição                                                                          
+        |
+
+        |---------------|-------------------------------------------------------------------------------------|
+
+        | employee      | ID do
+        funcionário.                                                                 
+        |
+
+        | times         | Lista de registros de ponto encontrados para o
+        funcionário.                         |
+
+
+        Os valores para cada um dos itens da lista de `times` são:
+
+
+        * `approved`: [true, false]. Indica se o registro já está aprovado pelo
+        gestor.
+
+        * `type`: [pré-assinalado, aparelho, web, desconsiderado, app,
+        reconhecimento facial, ajuste manual, offline, registro externo]
+
+        * `time`: Data e hora no format YYYY-MM-DDTHH:MM
+
+        * `justification`: justificativa do registro, caso exista.
+      parameters:
+        - name: employee_id
+          description: >-
+            ID do funcionário. Obrigatório caso `employee_external_id` não
+            esteja presente.
+          required: false
+          schema:
+            type: string
+          in: query
+        - name: employee_external_id
+          description: >-
+            ID externo do funcionário. Obrigatório caso `employee_id` não esteja
+            presente.
+          required: false
+          schema:
+            type: string
+          in: query
+        - name: start_date
+          description: Data inicial.
+          required: true
+          schema:
+            $ref: '#/components/schemas/DateParamModel'
+          in: query
+        - name: end_date
+          description: Data final.
+          required: true
+          schema:
+            $ref: '#/components/schemas/DateParamModel'
+          in: query
+      responses:
+        '200':
+          description: >
+            Resposta de sucesso, com detalhes dos registros de ponto. Os
+            exemplos mostrams os valores de resposta possíveis.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employee_id:
+                    description: >-
+                      ID do funcionário. Obrigatório caso `employee_external_id`
+                      não esteja presente.
+                    type: string
+                    example: 5f5bc225b511a6e44c2891f6
+                  employee_external_id:
+                    description: >-
+                      ID externo do funcionário. Obrigatório caso `employee_id`
+                      não esteja presente.
+                    type: string
+                  times:
+                    description: Lista de registros de ponto.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        approved:
+                          description: >-
+                            Indica se o registro está aprovado ou pendente de
+                            aprovação para fins de cálculos.
+                          type: boolean
+                        justification:
+                          description: >-
+                            Informações adicionais do motivo ou origem do
+                            registro.
+                          type: string
+                        time:
+                          type: string
+                          description: Data e hora do registro de ponto.
+                          example: 2024-09-30T10:19
+                          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+                        type:
+                          type: string
+                          description: >
+                            Origem do registro, os valores possíveis são
+                            *pré-assinalado, aparelho, web, desconsiderado, app,
+                            reconhecimento facial, offline, ajuste manual,
+                            registro externo, N/D*
+                          enum:
+                            - pré-assinalado
+                            - aparelho
+                            - web
+                            - desconsiderado
+                            - app
+                            - reconhecimento facial
+                            - offline
+                            - ajuste manual
+                            - registro externo
+                            - N/D
+                        location:
+                          type: array
+                          description: >-
+                            longitude e latitude de um registro de ponto com
+                            geolocalização.
+                          example:
+                            - -32.04910884654619
+                            - -54.188595456807924
+                          items:
+                            type: number
+              examples:
+                OK:
+                  value:
+                    employee_id: 5f5bc225b511a6e44c2891f6
+                    times:
+                      - approved: true
+                        justification: Esqueci de registrar
+                        time: 2024-09-24T07:32
+                        type: ajuste manual
+                      - approved: false
+                        justification: Sem rede
+                        time: 2024-09-22T11:59
+                        location:
+                          - -32.04910884654619
+                          - -54.188595456807924
+                        type: offline
+                      - approved: true
+                        time: 2023-09-24T12:00
+                        type: pré-assinalado
+                      - approved: true
+                        time: 2023-09-24T08:00
+                        type: aparelho
+                      - approved: true
+                        time: 2023-09-24T18:00
+                        type: app
+                      - approved: true
+                        justification: >-
+                          Registro feito via ponto web com geolocalização
+                          aprovado automaticamente.
+                        location:
+                          - -33.03922962211942
+                          - -51.22087741934293
+                        time: 2023-09-25T13:05
+                        type: web
+                      - approved: true
+                        justification: Registro realizado com reconhecimento facial.
+                        time: 2023-09-25T20:51
+                        type: reconhecimento facial
+                      - approved: true
+                        justification: Esqueci de registrar
+                        time: 2024-09-26T07:32
+                        type: ajuste manual
+                      - approved: true
+                        justification: desconsiderado!
+                        time: 2023-09-26T08:44
+                        type: desconsiderado
+                      - approved: true
+                        justification: Registro adicionado via API.
+                        time: 2023-09-27T08:12
+                        type: registro externo
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: Erro funcionário não encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 56
+                _error:
+                  code: 404
+                  message: resource not found.
+                  ui_message: funcionário não encontrado.
+                _status: ERR
+        '409':
+          description: Erro por cadastro de funcionário incompleto.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 128
+                _error:
+                  code: 409
+                  message: Incomplete employee profile.
+                  ui_message: >-
+                    Erro, cadastro de funcionário incompleto. Verifique com seu
+                    gestor.
+                _status: ERR
+        '422':
+          description: Erro por parâmetros incorretos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'
+  /timesheets:
+    get:
+      operationId: getTimesheet
+      tags:
+        - Espelhos de ponto
+      summary: Espelhos de ponto
+      description: >
+        Retorna espelhos de ponto com totais e detalhamento dia a dia.
+
+
+        **Modos de operação:**
+
+
+        - Com `employee_id` ou `employee_external_id`: retorna um único objeto
+        de espelho para o funcionário informado.
+
+        - Sem filtro de funcionário: retorna uma lista paginada de espelhos para
+        todos os funcionários ativos que possuem
+          espelho no período solicitado. Funcionários com cadastro incompleto são ignorados.
+        - Informar `employee_id` e `employee_external_id` simultaneamente
+        retorna erro.
+
+
+        **Banco de horas e período parcial:** os dados de banco de horas —
+        `banco_horas` em `totals` e `days`,
+
+        e o objeto `hours_bank_summary` — só são calculados quando o período
+        solicitado corresponde exatamente a
+
+        uma folha de ponto completa do funcionário (do início ao fim do período
+        de pagamento). Para um período
+
+        parcial (qualquer intervalo diferente da folha, inclusive um recorte que
+        começa no início dela ou que
+
+        abrange mais de uma folha), o espelho é retornado normalmente com as
+        demais rubricas, porém sem nenhum
+
+        dado de banco de horas. No modo lista, funcionários cujo período de
+        pagamento não coincide exatamente com
+
+        o intervalo solicitado também são incluídos, sem os dados de banco de
+        horas.
+
+
+        As chaves possíveis em `totals` e `days` representam o total em horas
+        centesimais de cada rubrica no período,
+
+        e podem ser as seguintes:
+
+
+        * total
+
+        * horas_normais
+
+        * banco_horas
+
+        * falta_injustificada
+
+        * falta_justificada
+
+        * abono
+
+        * folga
+
+        * atraso
+
+        * dsr
+
+        * desconto_dsr
+
+        * inss
+
+        * atestado
+
+        * dispensa_legal
+
+        * adicional_noturno
+
+        * adicional_noturno_extra_N (onde N é a faixa de horas extras em
+        adicional noturno. e.g. adicional_noturno_extra_50)
+
+        * hora_noturna_reduzida
+
+        * afastamento_nao_remunerado
+
+        * sobreaviso
+
+        * suspensao
+
+        * ferias
+
+        * extra_N (onde N é a faixa de horas extras. e.g. extra_50)
+      parameters:
+        - name: employee_id
+          description: >
+            ID do funcionário. Opcional. Se informado, retorna apenas o espelho
+            deste funcionário. Não pode ser usado em conjunto com
+            `employee_external_id`.
+          schema:
+            type: string
+          in: query
+        - name: employee_external_id
+          description: >
+            ID externo do funcionário. Opcional. Se informado, retorna apenas o
+            espelho deste funcionário. Não pode ser usado em conjunto com
+            `employee_id`.
+          schema:
+            type: string
+          in: query
+        - name: start_date
+          description: Data inicial da folha de ponto.
+          required: true
+          schema:
+            $ref: '#/components/schemas/DateParamModel'
+          in: query
+        - name: end_date
+          description: Data final da folha de ponto.
+          required: true
+          schema:
+            $ref: '#/components/schemas/DateParamModel'
+          in: query
+        - name: max_results
+          description: >
+            Tamanho da página de resultados. Utilizado apenas quando nenhum
+            filtro de funcionário é informado. O total reflete o número de
+            funcionários com espelho no período, não o total de funcionários
+            cadastrados.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/MaxResultsParamModel'
+        - name: page
+          description: >-
+            Número da página de resultados. Utilizado apenas quando nenhum
+            filtro de funcionário é informado.
+          required: false
+          in: query
+          schema:
+            $ref: '#/components/schemas/PageParamModel'
+      responses:
+        '200':
+          description: >
+            Resposta de sucesso. Quando `employee_id` ou `employee_external_id`
+            é informado, retorna um único objeto de espelho. Quando nenhum
+            filtro de funcionário é informado, retorna uma lista paginada de
+            espelhos. Valores em horas centesimais.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TimesheetModel'
+                  - title: Lista paginada
+                    description: >-
+                      Lista paginada de espelhos (quando nenhum filtro de
+                      funcionário é informado).
+                    type: object
+                    properties:
+                      _items:
+                        type: array
+                        description: >-
+                          Lista de espelhos de ponto. Cada item possui a mesma
+                          estrutura do retorno individual.
+                        items:
+                          $ref: '#/components/schemas/TimesheetModel'
+                      _meta:
+                        $ref: '#/components/schemas/MetaModel'
+                      _links:
+                        $ref: '#/components/schemas/LinksModel'
+        '401':
+          description: Erro por credenciais inválidas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '401':
+                  $ref: '#/components/examples/401_example'
+        '404':
+          description: >
+            Erro por funcionário não encontrado, ou por não existir espelho de
+            ponto para o período solicitado (período fora do contrato do
+            funcionário). Retornado apenas quando `employee_id` ou
+            `employee_external_id` é informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                funcionario_nao_encontrado:
+                  summary: Funcionário não encontrado.
+                  value:
+                    _code: 56
+                    _error:
+                      code: 404
+                      message: funcionário not found.
+                      ui_message: funcionário não encontrado.
+                    _status: ERR
+                periodo_sem_espelho:
+                  summary: Período sem espelho de ponto para o funcionário.
+                  value:
+                    _code: 96
+                    _error:
+                      code: 404
+                      message: No timesheet found for selected period.
+                      ui_message: >-
+                        Não existem espelhos de ponto para o período
+                        selecionado.
+                    _status: ERR
+        '409':
+          description: >
+            Erro por cadastro de funcionário incompleto. Retornado apenas quando
+            `employee_id` ou `employee_external_id` é informado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              example:
+                _code: 128
+                _error:
+                  code: 409
+                  message: Incomplete employee profile.
+                  ui_message: >-
+                    Erro, cadastro de funcionário incompleto. Verifique com seu
+                    gestor.
+                _status: ERR
+        '422':
+          description: Erro por parâmetros incorretos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErroRespostaModel'
+              examples:
+                '422':
+                  $ref: '#/components/examples/422_example'

@@ -1,0 +1,7 @@
+# src/gerar.py é o gerador de modelo LEGADO (fallback), não o fechamento oficial.
+# Usa apenas a biblioteca padrão do Python 3.11+.
+# Não há dependências pip.
+#
+# A conversão de HTML para PDF A4 usa o Google Chrome ou o Chromium
+# instalado na máquina (google-chrome, google-chrome-stable, chromium
+# ou chromium-browser). Não é um pacote Python.
