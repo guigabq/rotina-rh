@@ -11,6 +11,8 @@ Há duas rotinas:
 | [Checagem diária](docs/rotina-checagem-diaria.md) | Dias úteis, por volta das 08:00 (America/Sao_Paulo) | Confere o dia útil anterior de cada funcionário ativo e avisa o RH. |
 | [Fechamento mensal](docs/rotina-fechamento-mensal.md) | Dia 1 de cada mês, por volta das 08:00 | Salva o PDF oficial do espelho no TiqueAdmin, um por funcionário, e junta num arquivo só para impressão. |
 
+A pasta [`backup/`](backup/README.md) guarda só a cópia dos textos das rotinas e das skills; as rotinas não leem essa pasta.
+
 A jornada esperada é de segunda a sexta, em geral 08:00–12:00 e 13:00–18:00. Parte do time faz 07:00–17:00. A API não devolve as horas da escala nem um calendário de feriados. O arquivo [`config/feriados.txt`](config/feriados.txt) lista os feriados da checagem diária e do modelo legado; 12/10 (Nossa Senhora Aparecida) é um deles. O PDF oficial do mês usa o calendário do próprio TiqueAdmin.
 
 ## Fechamento: PDF oficial do painel
