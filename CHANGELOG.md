@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-21
+
+- Cópia dos textos das rotinas e das skills em `backup/`. As rotinas não leem essa pasta. Sem senha, token, e-mail ou dado pessoal: o texto usa marcadores.
+
 ## 2026-10-19
 
 - Documentação inicial, em português, do processo de ponto da T&M Personalizados sobre a API pública do TiqueTaque: visão geral, checagem diária e fechamento mensal.
