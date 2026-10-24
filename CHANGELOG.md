@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-23
+
+- Nova skill "Conferência do ponto no TiqueTaque" (somente leitura), aprovada pelo Guilherme. Cópia em `backup/skills/`.
+- A checagem diária passa a chamar a skill a partir de 26/10/2026; entrega (e-mail ao RH + nota no chat) e a regra de não gravar nada sem ok continuam iguais. Prompt novo em `backup/rotinas/checagem-diaria-do-ponto.md`.
+
 ## 2026-10-21
 
 - Cópia dos textos das rotinas e das skills em `backup/`. As rotinas não leem essa pasta. Sem senha, token, e-mail ou dado pessoal: o texto usa marcadores.
