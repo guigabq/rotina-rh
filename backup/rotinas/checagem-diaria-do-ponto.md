@@ -11,8 +11,6 @@ Read-only: do NOT write anything to TiqueTaque during this run. List the propose
 
 Delivery: email the report (subject "Ponto - checagem de DD/MM/AAAA", short summary first, then a compact per-employee list with the numbered proposed corrections) to <EMAIL_RH> using the user's connected Gmail account (<EMAIL_REMETENTE>). <GESTOR> explicitly asked for this email to be sent by the routine without a draft review. Send nothing to anyone else. Then post a one-line note to <GESTOR> in this Grok Bot chat saying the report went out and how many problems were found, so he can reply here with which corrections to apply. If everything is correct, the email just says the previous day's ponto is all ok, and the chat note says the same.
 
-First run with the skill (Mon 26/10/2026): also report back whether the skill covered everything the previous version did, or anything missing.
-
 ## Versão anterior
 
 Até 23/10/2026 o prompt tinha todo o passo a passo inline; hoje ele está na skill (`backup/skills/conferencia-do-ponto-no-tiquetaque.md`) e no histórico do git.

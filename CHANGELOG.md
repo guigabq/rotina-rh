@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-26
+
+- Primeira checagem com a skill (23/10) deu certo; removida do prompt a instrução de avaliar a primeira execução.
+
 ## 2026-10-23
 
 - Nova skill "Conferência do ponto no TiqueTaque" (somente leitura), aprovada pelo Guilherme. Cópia em `backup/skills/`.
